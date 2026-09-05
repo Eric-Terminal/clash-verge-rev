@@ -22,6 +22,7 @@ import getSystem from '@/utils/get-system'
 
 import {
   useCustomTheme,
+  useDialogFailure,
   useLayoutEvents,
   useLoadingOverlay,
   usePendingFailures,
@@ -36,6 +37,7 @@ dayjs.extend(relativeTime)
 const OS = getSystem()
 
 const Layout = () => {
+  const serviceFailure = useDialogFailure()
   const mode = useThemeMode()
   const isDark = mode !== 'light'
   const { t } = useTranslation()
@@ -108,8 +110,10 @@ const Layout = () => {
     <ThemeProvider theme={theme}>
       {/* 左侧底部窗口控制按钮 */}
       <NoticeManager position={verge?.notice_position} />
-      <ServiceMigrationDialog />
-      <SysproxyPrivilegeDialog />
+      <ServiceMigrationDialog
+        proxyDialogOpen={Boolean(serviceFailure.failure)}
+      />
+      <SysproxyPrivilegeDialog {...serviceFailure} />
       <div
         style={{
           animation: 'fadeIn 0.5s',
