@@ -2,7 +2,7 @@
 
 use anyhow::{Context as _, Result};
 
-use super::health::{PendingAction, RunState, ServiceHealth};
+use super::health::{PendingAction, RunState};
 use super::probe::ServiceVersionReply;
 
 /// Everything Run State needs from outside itself.
@@ -12,9 +12,9 @@ pub trait RunStateEnv: Send + Sync + 'static {
     /// Returns an error when installation evidence cannot be inspected, not when it is absent.
     fn trusted_install_evidence(&self) -> impl Future<Output = Result<bool>> + Send;
 
-    /// 系统注册状态可能要求用户批准或更新；其余情况继续沿用现有 IPC 检查。
-    fn service_registration_health(&self) -> impl Future<Output = Result<Option<ServiceHealth>>> + Send {
-        std::future::ready(Ok(None))
+    /// 等待系统批准时不把 IPC 尚未启动判为安装损坏。
+    fn service_requires_approval(&self) -> impl Future<Output = Result<bool>> + Send {
+        std::future::ready(Ok(false))
     }
 
     fn is_elevated(&self) -> bool;
@@ -32,8 +32,8 @@ pub struct RealEnv;
 
 impl RunStateEnv for RealEnv {
     #[cfg(target_os = "macos")]
-    async fn service_registration_health(&self) -> Result<Option<ServiceHealth>> {
-        tokio::task::spawn_blocking(crate::core::macos_service::registration_health)
+    async fn service_requires_approval(&self) -> Result<bool> {
+        tokio::task::spawn_blocking(crate::core::macos_service::requires_approval)
             .await
             .context("macOS 服务注册状态检查未完成")?
     }
@@ -91,7 +91,7 @@ mod fake {
     use clash_verge_service_ipc::ProtocolInfo;
     use parking_lot::Mutex;
 
-    use super::{PendingAction, RunState, RunStateEnv, ServiceHealth, ServiceVersionReply};
+    use super::{PendingAction, RunState, RunStateEnv, ServiceVersionReply};
     use crate::core::manager::RunningMode;
 
     /// A fail-closed scripted machine that records outbound effects.
@@ -105,7 +105,7 @@ mod fake {
         published: Mutex<Vec<RunState>>,
         privileged_outcome: Mutex<Result<(), String>>,
         privileged_actions: Mutex<Vec<PendingAction>>,
-        registration_health: Mutex<Option<ServiceHealth>>,
+        requires_approval: Mutex<bool>,
     }
 
     impl Default for FakeEnv {
@@ -119,14 +119,14 @@ mod fake {
                 published: Mutex::new(Vec::new()),
                 privileged_outcome: Mutex::new(Ok(())),
                 privileged_actions: Mutex::new(Vec::new()),
-                registration_health: Mutex::new(None),
+                requires_approval: Mutex::new(false),
             }
         }
     }
 
     impl FakeEnv {
-        pub fn set_registration_health(&self, health: Option<ServiceHealth>) {
-            *self.registration_health.lock() = health;
+        pub fn set_requires_approval(&self, required: bool) {
+            *self.requires_approval.lock() = required;
         }
 
         #[must_use]
@@ -221,8 +221,8 @@ mod fake {
     }
 
     impl RunStateEnv for FakeEnv {
-        async fn service_registration_health(&self) -> Result<Option<ServiceHealth>> {
-            Ok(self.registration_health.lock().clone())
+        async fn service_requires_approval(&self) -> Result<bool> {
+            Ok(*self.requires_approval.lock())
         }
 
         async fn probe_service_version(&self) -> Result<ServiceVersionReply> {

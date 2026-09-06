@@ -129,7 +129,6 @@ export const translationKeys = [
   'layout.components.serviceMigration.approvalMessage',
   'layout.components.serviceMigration.openSettings',
   'layout.components.serviceMigration.resume',
-  'layout.components.serviceMigration.resumeMessage',
   'layout.components.serviceMigration.title',
   'layout.components.serviceMigration.message',
   'layout.components.serviceMigration.checkingMessage',
