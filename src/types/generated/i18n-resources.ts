@@ -231,7 +231,6 @@ export interface TranslationResources {
           reinstall: string
           repair: string
           resume: string
-          resumeMessage: string
           success: string
           title: string
           unavailableMessage: string

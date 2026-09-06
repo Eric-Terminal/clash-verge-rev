@@ -1,10 +1,11 @@
-import { Alert, LinearProgress, Typography } from '@mui/material'
+import { Alert, Button, LinearProgress, Typography } from '@mui/material'
 import { useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseDialog } from '@/components/base'
-import { useSystemState } from '@/hooks/use-system-state'
+import { runStateQueryKey, useSystemState } from '@/hooks/use-system-state'
 import {
+  continueWithSidecar,
   getRuntimeState,
   installService,
   openServiceSettings,
@@ -14,6 +15,7 @@ import {
   type PendingFailure,
 } from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
+import { setCacheDataAsync } from '@/services/query-client'
 import {
   clearServiceRequest,
   getServiceRequest,
@@ -79,7 +81,7 @@ export const SysproxyPrivilegeDialog = ({
   dismiss: () => void
 }) => {
   const { t } = useTranslation()
-  const { runState, mutateSystemState } = useSystemState()
+  const { runState } = useSystemState()
   const asked = useSyncExternalStore(subscribeServiceRequest, getServiceRequest)
   const [step, setStep] = useState<Step>('idle')
   const loading = step !== 'idle'
@@ -91,27 +93,40 @@ export const SysproxyPrivilegeDialog = ({
   const remedy = remedyFor(reason)
   const restoring = request?.restore
   const approvalRequired = runState.service === 'approvalRequired'
+  const actionLabel =
+    remedy === 'installAndRestart' && !runState.serviceUsable
+      ? 'settings.sections.proxyControl.actions.installService'
+      : 'settings.sections.proxyControl.actions.switchToServiceMode'
+  const explanation = step === 'idle' ? EXPLANATION[reason] : STEP_MESSAGE[step]
 
   const close = () => {
     clearServiceRequest()
     dismiss()
   }
 
+  const handleLater = async () => {
+    try {
+      // 记录本次暂不批准的选择，避免关闭后又出现全局服务提示。
+      if (approvalRequired) await continueWithSidecar()
+      close()
+    } catch (error) {
+      showNotice.error(error)
+    }
+  }
+
   const handleFix = async () => {
     try {
       const before = await getRuntimeState()
-      if (before.service === 'approvalRequired' && !before.sidecarAllowed) {
-        await openServiceSettings()
-        return
-      }
       if (
-        remedy === 'installAndRestart' &&
-        (!before.serviceUsable || before.sidecarAllowed)
+        before.service === 'approvalRequired' ||
+        (remedy === 'installAndRestart' &&
+          (!before.serviceUsable || before.sidecarAllowed))
       ) {
         setStep('installing')
         await installService()
-        await mutateSystemState()
-        if ((await getRuntimeState()).service === 'approvalRequired') return
+        const state = await getRuntimeState()
+        await setCacheDataAsync(runStateQueryKey, state)
+        if (state.service === 'approvalRequired') return
       }
       setStep('restarting')
       await restartCore()
@@ -152,26 +167,39 @@ export const SysproxyPrivilegeDialog = ({
       )}
       okBtn={t(
         approvalRequired
-          ? 'layout.components.serviceMigration.openSettings'
-          : remedy === 'installAndRestart' && !runState.serviceUsable
-            ? 'settings.sections.proxyControl.actions.installService'
-            : 'settings.sections.proxyControl.actions.switchToServiceMode',
+          ? 'layout.components.serviceMigration.resume'
+          : actionLabel,
       )}
       cancelBtn={t('layout.components.sysproxyPrivilege.later')}
       // Keep the primary spinner visible; only cancellation is unavailable.
       disableCancel={loading}
       loading={loading}
       onOk={() => void handleFix()}
-      onCancel={close}
-      onClose={close}
+      onCancel={() => void handleLater()}
+      onClose={() => void handleLater()}
     >
-      <Alert severity={loading ? 'info' : 'warning'} sx={{ mb: 1.5 }}>
+      <Alert
+        severity={loading ? 'info' : 'warning'}
+        sx={{ mb: 1.5 }}
+        action={
+          approvalRequired &&
+          !loading && (
+            <Button
+              onClick={() =>
+                void openServiceSettings().catch((error) =>
+                  showNotice.error(error),
+                )
+              }
+            >
+              {t('layout.components.serviceMigration.openSettings')}
+            </Button>
+          )
+        }
+      >
         {t(
-          step !== 'idle'
-            ? STEP_MESSAGE[step]
-            : approvalRequired
-              ? 'layout.components.serviceMigration.approvalMessage'
-              : EXPLANATION[reason],
+          approvalRequired && !loading
+            ? 'layout.components.serviceMigration.approvalMessage'
+            : explanation,
         )}
       </Alert>
       {loading && <LinearProgress />}

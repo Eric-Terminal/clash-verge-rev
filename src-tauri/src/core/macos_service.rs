@@ -1,19 +1,11 @@
 //! macOS 13 起由系统管理包内守护进程；服务协议仍由现有服务程序提供。
 
-use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash as _, Hasher as _},
-    path::PathBuf,
-    sync::mpsc,
-};
+use std::sync::mpsc;
 
 use anyhow::{Context as _, Result, bail};
 use block2::RcBlock;
 use objc2::{msg_send, rc::Retained, runtime::AnyClass};
-use objc2_foundation::{NSBundle, NSError, NSObject, NSString};
-
-use super::runstate::ServiceHealth;
-use crate::utils::dirs;
+use objc2_foundation::{NSError, NSObject, NSString};
 
 // 独立于旧安装器的标签，避免旧卸载器留下的 launchctl disable 覆盖新注册。
 const PLIST_NAME: &str = "io.github.clash-verge-rev.clash-verge-rev.daemon.plist";
@@ -66,7 +58,6 @@ impl Daemon {
                 bail!("注册 macOS 后台服务失败：{error:?}");
             }
         }
-        std::fs::write(receipt_path()?, bundle_fingerprint()?).context("无法记录 macOS 服务注册版本")?;
         Ok(())
     }
 
@@ -91,45 +82,10 @@ impl Daemon {
         }
         Ok(())
     }
-
-    pub(super) fn registration_health(&self) -> Result<Option<ServiceHealth>> {
-        match self.status()? {
-            Status::RequiresApproval => Ok(Some(ServiceHealth::ApprovalRequired)),
-            Status::Enabled => {
-                // 这里只判断是否需要重新注册；信任与权限验证全部交给系统签名检查。
-                let receipt = match std::fs::read_to_string(receipt_path()?) {
-                    Ok(receipt) => Some(receipt),
-                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
-                    Err(error) => return Err(error).context("无法读取 macOS 服务注册版本"),
-                };
-                Ok((receipt.as_deref() != Some(bundle_fingerprint()?.as_str()))
-                    .then_some(ServiceHealth::VersionMismatch))
-            }
-            Status::NotRegistered | Status::NotFound => Ok(None),
-        }
-    }
 }
 
-fn receipt_path() -> Result<PathBuf> {
-    Ok(dirs::app_home_dir()?.join("macos-service-registration"))
-}
-
-fn bundle_fingerprint() -> Result<String> {
-    let bundle = PathBuf::from(NSBundle::mainBundle().bundlePath().to_string());
-    let mut hash = DefaultHasher::new();
-    for relative in [
-        "Contents/MacOS/clash-verge-service".to_owned(),
-        format!("Contents/Library/LaunchDaemons/{PLIST_NAME}"),
-    ] {
-        std::fs::read(bundle.join(relative))
-            .context("无法读取包内 macOS 服务文件")?
-            .hash(&mut hash);
-    }
-    Ok(format!("{:016x}", hash.finish()))
-}
-
-pub(crate) fn registration_health() -> Result<Option<ServiceHealth>> {
-    Daemon::current().map_or(Ok(None), |daemon| daemon.registration_health())
+pub(crate) fn requires_approval() -> Result<bool> {
+    Daemon::current().map_or(Ok(false), |daemon| Ok(daemon.status()? == Status::RequiresApproval))
 }
 
 pub(crate) fn open_settings() -> Result<()> {

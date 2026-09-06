@@ -749,8 +749,11 @@ fn uninstall_legacy_macos_service() -> Result<()> {
 #[cfg(target_os = "macos")]
 fn install_service() -> Result<()> {
     if let Some(daemon) = super::macos_service::Daemon::current() {
-        // 用户在系统设置中关闭服务后，重新安装不能代替其批准。
-        if daemon.status()? == super::macos_service::Status::RequiresApproval {
+        // 批准后点击继续只需等待 IPC；重装入口会先注销，不在这里重复注册。
+        if matches!(
+            daemon.status()?,
+            super::macos_service::Status::Enabled | super::macos_service::Status::RequiresApproval
+        ) {
             return Ok(());
         }
         if macos_service_install_marker_exists()? {
@@ -765,7 +768,6 @@ fn install_service() -> Result<()> {
                 }
             }
         }
-        daemon.unregister()?;
         return daemon.register();
     }
     logging!(info, Type::Service, "install service");
@@ -823,13 +825,21 @@ fn check_output_error(output: &std::process::Output) -> Option<(i32, Cow<'_, str
 
 fn reinstall_service() -> Result<()> {
     logging!(info, Type::Service, "reinstall service");
+    #[cfg(target_os = "macos")]
+    if let Some(daemon) = super::macos_service::Daemon::current() {
+        // 重装不能替代系统批准；更新服务程序前需等旧任务完全退出。
+        if daemon.status()? == super::macos_service::Status::RequiresApproval {
+            return Ok(());
+        }
+        daemon.unregister()?;
+    }
     install_service()
 }
 
 /// 强制重装服务（UI修复按钮）
 fn force_reinstall_service() -> Result<()> {
     logging!(info, Type::Service, "用户请求强制重装服务");
-    install_service().map_err(|err| {
+    reinstall_service().map_err(|err| {
         logging!(error, Type::Service, "强制重装服务失败: {}", err);
         err
     })
