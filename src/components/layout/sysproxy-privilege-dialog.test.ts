@@ -25,7 +25,7 @@ const mocks = vi.hoisted(() => ({
   patchVergeConfig: vi.fn(),
   clearServiceRequest: vi.fn(),
   getServiceRequest: vi.fn(),
-  setCacheDataAsync: vi.fn(),
+  setCacheData: vi.fn(),
   dismiss: vi.fn(),
   notice: { success: vi.fn(), error: vi.fn() },
 }))
@@ -71,7 +71,7 @@ vi.mock('@/hooks/use-system-state', () => ({
 vi.mock('@/services/cmds', () => mocks)
 vi.mock('@/services/notice-service', () => ({ showNotice: mocks.notice }))
 vi.mock('@/services/query-client', () => ({
-  setCacheDataAsync: mocks.setCacheDataAsync,
+  setCacheData: mocks.setCacheData,
   useQuery: () => ({ data: { ...mocks.state, serviceNeedsAttention: true } }),
 }))
 vi.mock('@/hooks/use-visibility', () => ({ useVisibility: () => true }))

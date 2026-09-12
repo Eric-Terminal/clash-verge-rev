@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 
 import { getRuntimeState, installService, restartCore } from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
-import { setCacheDataAsync } from '@/services/query-client'
+import { setCacheData } from '@/services/query-client'
 
 import { runStateQueryKey } from './use-system-state'
 
@@ -12,7 +12,7 @@ export const useServiceInstaller = () => {
       showNotice.info('settings.statuses.clashService.installing')
       await installService()
       const state = await getRuntimeState()
-      await setCacheDataAsync(runStateQueryKey, state)
+      setCacheData(runStateQueryKey, state)
       if (state.service === 'approvalRequired') return
       showNotice.success(
         'settings.feedback.notifications.clashService.installSuccess',

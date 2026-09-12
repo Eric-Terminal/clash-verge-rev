@@ -79,7 +79,7 @@ export const ServiceMigrationDialog = ({
   const refreshRunState = async () => {
     try {
       const data = await getRuntimeState()
-      await setCacheData<RunState>(runStateQueryKey, data)
+      setCacheData<RunState>(runStateQueryKey, data)
       setStateRefreshFailed(false)
       return data
     } catch (error) {

@@ -43,6 +43,11 @@ pub struct CoreUpgradeReport {
 }
 
 pub async fn upgrade_core(force: bool) -> Result<CoreUpgradeReport> {
+    // 包内内核属于 SMAppService 的签名资源，单独替换会使下次系统注册失效。
+    #[cfg(target_os = "macos")]
+    if !cfg!(feature = "verge-dev") {
+        bail!("此版本的内核随 App 一起更新，请重新构建并替换完整应用");
+    }
     let _serialized = UPGRADE_LOCK.lock().await;
     let core = Config::verge().await.latest_arc().get_valid_clash_core();
     tracing::Span::current().record("core", tracing::field::display(&core));

@@ -6,14 +6,14 @@ const mocks = vi.hoisted(() => ({
   installService: vi.fn(),
   getRuntimeState: vi.fn(),
   restartCore: vi.fn(),
-  setCacheDataAsync: vi.fn(),
+  setCacheData: vi.fn(),
   notice: { info: vi.fn(), success: vi.fn(), error: vi.fn() },
 }))
 
 vi.mock('react', () => ({ useCallback: (callback: unknown) => callback }))
 vi.mock('@/services/cmds', () => mocks)
 vi.mock('@/services/query-client', () => ({
-  setCacheDataAsync: mocks.setCacheDataAsync,
+  setCacheData: mocks.setCacheData,
 }))
 vi.mock('@/services/notice-service', () => ({ showNotice: mocks.notice }))
 vi.mock('./use-system-state', () => ({ runStateQueryKey: ['getRuntimeState'] }))
@@ -30,10 +30,7 @@ describe('安装服务后的授权衔接', () => {
     await useServiceInstaller().installServiceAndRestartCore()
 
     expect(mocks.installService).toHaveBeenCalledOnce()
-    expect(mocks.setCacheDataAsync).toHaveBeenCalledWith(
-      ['getRuntimeState'],
-      state,
-    )
+    expect(mocks.setCacheData).toHaveBeenCalledWith(['getRuntimeState'], state)
     expect(mocks.restartCore).not.toHaveBeenCalled()
     expect(mocks.notice.success).not.toHaveBeenCalled()
   })

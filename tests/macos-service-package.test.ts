@@ -26,7 +26,8 @@ describe.skipIf(process.platform !== 'darwin')('macOS 原生服务打包约束',
     )
 
     expect(destination).toBe(`Library/LaunchDaemons/${plist.Label}.plist`)
-    expect(plist.BundleProgram).toBe('Contents/MacOS/clash-verge-service')
+    expect(plist.BundleProgram).toBe('Contents/MacOS/clash-verge')
+    expect(plist.ProgramArguments).toEqual(['clash-verge', '--smappservice'])
     expect(config.bundle.externalBin).toContain('sidecar/clash-verge-service')
     expect(plist.Program).toBeUndefined()
     expect(plist.RunAtLoad).toBe(true)

@@ -15,7 +15,7 @@ import {
   type PendingFailure,
 } from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
-import { setCacheDataAsync } from '@/services/query-client'
+import { setCacheData } from '@/services/query-client'
 import {
   clearServiceRequest,
   getServiceRequest,
@@ -125,7 +125,7 @@ export const SysproxyPrivilegeDialog = ({
         setStep('installing')
         await installService()
         const state = await getRuntimeState()
-        await setCacheDataAsync(runStateQueryKey, state)
+        setCacheData(runStateQueryKey, state)
         if (state.service === 'approvalRequired') return
       }
       setStep('restarting')
