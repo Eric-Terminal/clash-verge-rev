@@ -6,6 +6,7 @@ import {
 import { compareVersions as compareSemver } from 'compare-versions'
 
 import { version as appVersion } from '@root/package.json'
+import tauriConfig from '@root/src-tauri/tauri.conf.json'
 
 const SEMVER_FULL_REGEX =
   /^\d+(?:\.\d+){1,2}(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/
@@ -72,6 +73,9 @@ const localVersionNormalized = normalizeVersion(appVersion)
 export const checkUpdateSafe = async (
   options?: CheckOptions,
 ): Promise<Update | null> => {
+  if (tauriConfig.plugins.updater.endpoints.length === 0) {
+    throw new Error('此版本使用源码更新，请从自用仓库重新构建并替换应用。')
+  }
   const result = await check({ ...(options ?? {}), allowDowngrades: false })
   if (!result) return null
 

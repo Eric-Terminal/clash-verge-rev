@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next'
 import { BaseDialog, DialogRef, Switch, TooltipIcon } from '@/components/base'
 import { useVerge } from '@/hooks/use-verge'
 import { showNotice } from '@/services/notice-service'
+import tauriConfig from '@root/src-tauri/tauri.conf.json'
 
 export const MiscViewer = forwardRef<DialogRef>((props, ref) => {
   const { t } = useTranslation()
@@ -204,7 +205,11 @@ export const MiscViewer = forwardRef<DialogRef>((props, ref) => {
           />
           <Switch
             edge="end"
-            checked={values.autoCheckUpdate}
+            disabled={tauriConfig.plugins.updater.endpoints.length === 0}
+            checked={
+              tauriConfig.plugins.updater.endpoints.length > 0 &&
+              values.autoCheckUpdate
+            }
             onChange={(_, c) =>
               setValues((v) => ({ ...v, autoCheckUpdate: c }))
             }

@@ -1,3 +1,5 @@
+> 这是 Eric-Terminal 的 macOS 自用分支，使用 SMAppService 管理后台服务，并通过源码构建更新。构建、替换和跟随上游的方法见 [macOS 自用说明](./docs/SELF_BUILD_MACOS.md)。下方保留上游项目介绍。
+
 <h1 align="center">
   <img src="./src-tauri/icons/icon.png" alt="Clash" width="128" />
   <br>

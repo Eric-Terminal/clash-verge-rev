@@ -1,5 +1,6 @@
 import { fetchCacheData, setCacheData, useQuery } from '@/services/query-client'
 import { checkUpdateSafe } from '@/services/update'
+import tauriConfig from '@root/src-tauri/tauri.conf.json'
 
 import { useVerge } from './use-verge'
 
@@ -23,7 +24,10 @@ export const useUpdate = (enabled: boolean = true) => {
   const { verge } = useVerge()
   const { auto_check_update } = verge || {}
 
-  const shouldCheck = enabled && auto_check_update !== false
+  const shouldCheck =
+    enabled &&
+    auto_check_update !== false &&
+    tauriConfig.plugins.updater.endpoints.length > 0
 
   const fetchUpdate = async () => {
     const result = await checkUpdateSafe()
