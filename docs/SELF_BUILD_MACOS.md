@@ -43,9 +43,9 @@ git push --force-with-lease origin personal/macos
 
 ## 替换应用
 
-退出 Clash Verge 后，用新 App 替换 `/Applications/Clash Verge.app`，再启动。应用必须放在 `/Applications`：新版服务安装器会检查内核来源位置。继续使用同一签名证书，并在需要时到系统设置批准后台服务。更新包内服务后，可使用应用现有的服务修复入口重新注册。
+先完成新 App 的构建与签名校验，再退出 Clash Verge，替换 `/Applications/Clash Verge.app` 并启动。退出、替换和启动需要在本机连续完成：退出代理可能中断网络，不能依赖后续远程指令来启动应用。应用必须放在 `/Applications`：新版服务安装器会检查内核来源位置。继续使用同一签名证书，并在需要时到系统设置批准后台服务。更新包内服务后，可使用应用现有的服务修复入口重新注册。
 
-Homebrew 原版只需卸载一次：`brew uninstall --cask clash-verge-rev`。不要使用 `--zap`，它会连配置一起清除。此后由自用构建管理应用。
+如果 Homebrew 仍记录着原版安装，执行 `brew pin --cask clash-verge-rev`，阻止 `brew upgrade` 覆盖自用版本。已经替换 App 后不要执行 `brew uninstall`，它仍会删除 `/Applications/Clash Verge.app`；`--zap` 还会清除配置。锁定保留的只是 Homebrew 安装记录，应用由自用构建更新。
 
 后台入口先以系统身份调用原安装器的 `--install-core`，准备包内的两个内核副本，再执行原服务。服务 IPC、可信路径校验和内核副本的权限规则保持上游实现。
 
