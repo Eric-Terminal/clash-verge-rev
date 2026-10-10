@@ -16,11 +16,14 @@ const store = vi.hoisted(() => ({
   runState: null as RunState | null,
 }))
 
-vi.mock('react', () => ({ useState: vi.fn() }))
+vi.mock('react', () => ({
+  useState: vi.fn(),
+  useSyncExternalStore: () => null,
+}))
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }))
-vi.mock('@mui/material', () => ({ Alert: 'div' }))
+vi.mock('@mui/material', () => ({ Alert: 'div', Button: 'button' }))
 vi.mock('@/components/base', () => ({ BaseDialog: 'dialog' }))
 vi.mock('@/store/app-store-context', () => ({
   useAppReads: () => ({ readRunState: getRuntimeState }),
@@ -54,7 +57,7 @@ it.each([
   'does not offer Sidecar continuation from %j',
   (state) => {
     store.runState = state as unknown as RunState
-    const dialog = ServiceMigrationDialog()
+    const dialog = ServiceMigrationDialog({ proxyDialogOpen: false })
     expect(dialog.props.open).toBe(true)
     expect(dialog.props.disableCancel).toBe(true)
   },
@@ -74,7 +77,7 @@ it('reports the permission refusal and finishes after installation falls back to
     serviceNeedsAttention: false,
   } as RunState)
 
-  const dialog = ServiceMigrationDialog()
+  const dialog = ServiceMigrationDialog({ proxyDialogOpen: false })
   dialog.props.onOk()
   await vi.waitFor(() => {
     expect(showNotice.warning).toHaveBeenCalledWith(
@@ -97,10 +100,26 @@ it.each([
   { service: 'versionMismatch', mode: 'NotRunning' },
   { service: 'unavailable', mode: 'NotRunning' },
   { service: 'notInstalled', mode: 'Sidecar', pendingAction: 'install' },
+  { service: 'approvalRequired', mode: 'NotRunning' },
+  { service: 'approvalRequired', mode: 'Sidecar' },
 ] satisfies Partial<RunState>[])(
   'offers Sidecar continuation from %j',
   (state) => {
     store.runState = state as unknown as RunState
-    expect(ServiceMigrationDialog().props.disableCancel).toBe(false)
+    expect(
+      ServiceMigrationDialog({ proxyDialogOpen: false }).props.disableCancel,
+    ).toBe(false)
   },
 )
+
+it('原代理操作已有批准引导时不再显示全局服务弹窗', () => {
+  store.runState = {
+    service: 'approvalRequired',
+    mode: 'NotRunning',
+    serviceNeedsAttention: true,
+  } as RunState
+
+  expect(ServiceMigrationDialog({ proxyDialogOpen: true }).props.open).toBe(
+    false,
+  )
+})
