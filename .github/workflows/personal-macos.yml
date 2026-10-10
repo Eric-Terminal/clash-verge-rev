@@ -64,6 +64,9 @@ jobs:
           pnpm test
           pnpm arch:check
 
+      - name: 生成后端测试所需的网页资源
+        run: pnpm web:build
+
       - name: 检查后端与 DNS 重启回归
         run: |
           cargo fmt --all -- --check
