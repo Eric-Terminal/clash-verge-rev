@@ -1,0 +1,92 @@
+name: macOS 自用构建
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: personal-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  HUSKY: 0
+  CARGO_INCREMENTAL: 0
+  CARGO_BUILD_JOBS: 4
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  CARGO_PROFILE_RELEASE_DEBUG: 0
+  CARGO_PROFILE_RELEASE_STRIP: symbols
+  CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO: off
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.99.0'
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: personal-macos-v1
+          workspaces: . -> target
+          cache-all-crates: true
+          cache-workspace-crates: true
+          cache-on-failure: true
+
+      - uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.21.0'
+          cache: pnpm
+
+      - name: 安装锁定依赖与包内资源
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm prebuild aarch64-apple-darwin --force
+
+      - name: 检查前端与自用行为
+        run: |
+          pnpm format:check
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+          pnpm arch:check
+
+      - name: 检查后端与 DNS 重启回归
+        run: |
+          cargo fmt --all -- --check
+          cargo test -p clash-verge --lib --locked
+          cargo clippy --all-targets --all-features --locked -- -D warnings
+
+      - name: 构建 Apple Silicon 应用
+        run: |
+          test "$(uname -m)" = arm64
+          pnpm tauri build --bundles app -- --locked
+
+      - name: 打包供本机签名的应用
+        run: |
+          # CI 不持有个人签名私钥；下载后用原证书签名，延续 SMAppService 的身份。
+          ditto -c -k --sequesterRsrc --keepParent \
+            'target/release/bundle/macos/Clash Verge.app' Clash-Verge-personal-macos-arm64.zip
+          shasum -a 256 Clash-Verge-personal-macos-arm64.zip > SHA256SUMS
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: clash-verge-personal-macos-arm64-${{ github.sha }}
+          path: |
+            Clash-Verge-personal-macos-arm64.zip
+            SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14

@@ -2,9 +2,26 @@
 
 自用分支为 `personal/macos`。`origin` 指向 Eric-Terminal 的 fork，`upstream` 指向原项目。原来的 `feat/macos-smappservice` 分支保留，不跟随自用版本重写历史。
 
-此分支基于上游 2.5.4 开发线。macOS 13 及以上使用 SMAppService，由「系统设置 → 通用 → 登录项与扩展」批准后台服务；Touch ID 是否出现由系统决定。应用名称和配置目录沿用原版，可直接替换 `/Applications/Clash Verge.app`。
+此分支已合入上游 2.5.9 开发线（包含 2.5.8 发布后的更新）。macOS 13 及以上使用 SMAppService，由「系统设置 → 通用 → 登录项与扩展」批准后台服务；Touch ID 是否出现由系统决定。应用名称和配置目录沿用原版，可直接替换 `/Applications/Clash Verge.app`。
 
 ## 构建
+
+日常更新可在 Fork 的 Actions 中手动运行「macOS 自用构建」，选择 `personal/macos`。工作流在 GitHub 的 Apple Silicon runner 上运行前后端检查并构建 App，产物附带 SHA-256 校验文件。本机只需下载、验签和替换，无需编译。
+
+CI 产物尚未使用个人证书签名。下载后先按 `SHA256SUMS` 校验，再解压 ZIP，用原应用的同一证书签名：
+
+```sh
+shasum -a 256 -c SHA256SUMS
+ditto -x -k Clash-Verge-personal-macos-arm64.zip ./personal-build
+codesign --force --deep --options runtime \
+  --entitlements src-tauri/packages/macos/entitlements.plist \
+  --sign "$APPLE_SIGNING_IDENTITY" './personal-build/Clash Verge.app'
+codesign --verify --deep --strict './personal-build/Clash Verge.app'
+```
+
+`APPLE_SIGNING_IDENTITY` 应设为原应用使用的证书标识，可通过 `security find-identity -v -p codesigning` 确认。个人签名私钥留在本机钥匙串，不上传 CI。替换前遵循下方的「替换应用」说明。
+
+需要本机构建时：
 
 需要项目指定的 Rust、pnpm，以及钥匙串中可用的 Apple Development 或 Developer ID Application 签名证书。多个证书并存时，用 `APPLE_SIGNING_IDENTITY` 指定原先使用的证书。
 
@@ -24,7 +41,7 @@ bash scripts/build-macos-personal.sh
 git switch personal/macos
 git fetch upstream --prune --tags
 git branch "backup/personal-macos-$(date +%Y%m%d-%H%M%S)"
-git rebase --gpg-sign upstream/dev
+git merge --no-ff --gpg-sign upstream/dev
 ```
 
 如果要改为跟随正式发布，用相应版本标签替换 `upstream/dev`；目标版本必须包含本分支依赖的服务接口。解决冲突后需要检查服务安装、批准、启动和内核更新相关改动，不能只依据 Git 自动合并成功判断兼容性。
@@ -36,10 +53,10 @@ pnpm lint
 cargo test -p clash-verge --lib --locked
 cargo clippy --all-targets --all-features --locked -- -D warnings
 bash scripts/build-macos-personal.sh
-git push --force-with-lease origin personal/macos
+git push origin personal/macos
 ```
 
-`--force-with-lease` 只用于自己 rebase 后的分支。如果远端出现其他提交，先检查差异。不要强推原功能 PR 分支。
+合并保留自用分支与上游的提交历史；如果远端出现其他提交，先检查差异，不要强推原功能 PR 分支。
 
 ## 替换应用
 
