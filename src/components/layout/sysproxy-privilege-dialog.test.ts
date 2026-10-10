@@ -25,9 +25,8 @@ const mocks = vi.hoisted(() => ({
   patchVergeConfig: vi.fn(),
   clearServiceRequest: vi.fn(),
   getServiceRequest: vi.fn(),
-  setCacheData: vi.fn(),
   dismiss: vi.fn(),
-  notice: { success: vi.fn(), error: vi.fn() },
+  notice: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
 }))
 
 vi.mock('react', async (importOriginal) => ({
@@ -63,7 +62,6 @@ vi.mock('@/components/base', () => ({
   },
 }))
 vi.mock('@/hooks/use-system-state', () => ({
-  runStateQueryKey: ['getRuntimeState'],
   useSystemState: () => ({
     runState: mocks.state,
   }),
@@ -71,10 +69,12 @@ vi.mock('@/hooks/use-system-state', () => ({
 vi.mock('@/services/cmds', () => mocks)
 vi.mock('@/services/notice-service', () => ({ showNotice: mocks.notice }))
 vi.mock('@/services/query-client', () => ({
-  setCacheData: mocks.setCacheData,
-  useQuery: () => ({ data: { ...mocks.state, serviceNeedsAttention: true } }),
+  revalidateQueries: vi.fn(),
 }))
-vi.mock('@/hooks/use-visibility', () => ({ useVisibility: () => true }))
+vi.mock('@/store/app-store-context', () => ({
+  useAppReads: () => ({ readRunState: mocks.getRuntimeState }),
+  useRunState: () => ({ ...mocks.state, serviceNeedsAttention: true }),
+}))
 vi.mock('@/services/service-request', () => ({
   getServiceRequest: mocks.getServiceRequest,
   subscribeServiceRequest: vi.fn(),
@@ -100,6 +100,7 @@ const clickButton = async (
 beforeEach(() => {
   vi.resetAllMocks()
   mocks.openServiceSettings.mockResolvedValue(undefined)
+  mocks.installService.mockResolvedValue({ status: 'installed' })
   mocks.getServiceRequest.mockReturnValue({
     reason: 'tunNeedsService',
     restore: { enable_tun_mode: true },
@@ -122,6 +123,7 @@ describe('启动时继续后台服务批准', () => {
     mocks.installService.mockImplementation(() => {
       mocks.state.service = health
       mocks.state.serviceUsable = health === 'ready'
+      return { status: 'installed' }
     })
     renderToStaticMarkup(
       createElement(ServiceMigrationDialog, { proxyDialogOpen: false }),
@@ -192,6 +194,7 @@ describe('TUN 请求跨越系统批准流程', () => {
     mocks.state.service = 'notInstalled'
     mocks.installService.mockImplementation(() => {
       mocks.state.service = 'approvalRequired'
+      return { status: 'installed' }
     })
 
     await clickButton()
@@ -222,6 +225,7 @@ describe('TUN 请求跨越系统批准流程', () => {
     mocks.installService.mockImplementation(() => {
       mocks.state.service = 'ready'
       mocks.state.serviceUsable = true
+      return { status: 'installed' }
     })
     mocks.restartCore.mockImplementation(() => {
       mocks.state.mode = 'Service'

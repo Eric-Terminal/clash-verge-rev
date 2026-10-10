@@ -6,20 +6,20 @@ const mocks = vi.hoisted(() => ({
   installService: vi.fn(),
   getRuntimeState: vi.fn(),
   restartCore: vi.fn(),
-  setCacheData: vi.fn(),
-  notice: { info: vi.fn(), success: vi.fn(), error: vi.fn() },
+  notice: { info: vi.fn(), success: vi.fn(), error: vi.fn(), warning: vi.fn() },
 }))
 
 vi.mock('react', () => ({ useCallback: (callback: unknown) => callback }))
 vi.mock('@/services/cmds', () => mocks)
-vi.mock('@/services/query-client', () => ({
-  setCacheData: mocks.setCacheData,
+vi.mock('@/store/app-store-context', () => ({
+  useAppReads: () => ({ readRunState: mocks.getRuntimeState }),
 }))
+vi.mock('@/services/query-client', () => ({ revalidateQueries: vi.fn() }))
 vi.mock('@/services/notice-service', () => ({ showNotice: mocks.notice }))
-vi.mock('./use-system-state', () => ({ runStateQueryKey: ['getRuntimeState'] }))
 
 beforeEach(() => {
   vi.resetAllMocks()
+  mocks.installService.mockResolvedValue({ status: 'installed' })
 })
 
 describe('安装服务后的授权衔接', () => {
@@ -30,7 +30,7 @@ describe('安装服务后的授权衔接', () => {
     await useServiceInstaller().installServiceAndRestartCore()
 
     expect(mocks.installService).toHaveBeenCalledOnce()
-    expect(mocks.setCacheData).toHaveBeenCalledWith(['getRuntimeState'], state)
+    expect(mocks.getRuntimeState).toHaveBeenCalledOnce()
     expect(mocks.restartCore).not.toHaveBeenCalled()
     expect(mocks.notice.success).not.toHaveBeenCalled()
   })
@@ -67,6 +67,24 @@ describe('安装服务后的授权衔接', () => {
     ).rejects.toThrow(failure)
 
     expect(mocks.notice.error).toHaveBeenCalledWith(failure)
+    expect(mocks.notice.success).not.toHaveBeenCalled()
+    expect(mocks.restartCore).not.toHaveBeenCalled()
+  })
+
+  it('上游返回 Sidecar 回退时保留提示，不宣称服务已安装', async () => {
+    mocks.installService.mockResolvedValue({
+      status: 'sidecar',
+      reason: '路径被拒绝',
+    })
+    mocks.getRuntimeState.mockResolvedValue({ service: 'unavailable' })
+
+    await useServiceInstaller().installServiceAndRestartCore()
+
+    expect(mocks.notice.warning).toHaveBeenCalledWith(
+      'settings.feedback.notifications.clashService.permissionFallback',
+      { reason: '路径被拒绝' },
+      0,
+    )
     expect(mocks.notice.success).not.toHaveBeenCalled()
     expect(mocks.restartCore).not.toHaveBeenCalled()
   })
