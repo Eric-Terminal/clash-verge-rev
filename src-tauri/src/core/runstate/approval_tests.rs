@@ -40,6 +40,7 @@ async fn continuing_after_approval_waits_for_ipc_before_reporting_ready() -> any
             code: 0,
             message: "ok".to_owned(),
             protocol: Some(clash_verge_service_ipc::ProtocolInfo::current()),
+            core: Some(clash_verge_service_ipc::CoreAvailability::Ready),
         }),
     ]);
     let store = RunStateStore::new(env);
