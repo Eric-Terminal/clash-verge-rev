@@ -212,9 +212,9 @@ fn asset_base_name(alpha: bool) -> Result<&'static str> {
         }
     } else if cfg!(target_os = "macos") {
         match arch {
-            "x86_64" if alpha => "mihomo-darwin-amd64-v1-go122",
-            "x86_64" => "mihomo-darwin-amd64-v2-go122",
-            "aarch64" => "mihomo-darwin-arm64-go122",
+            "x86_64" if alpha => "mihomo-darwin-amd64-v1",
+            "x86_64" => "mihomo-darwin-amd64-v2",
+            "aarch64" => "mihomo-darwin-arm64",
             _ => return Err(unsupported()),
         }
     } else {
@@ -510,5 +510,11 @@ mod tests {
             "{release}"
         );
         assert!(alpha.contains("/Prerelease-Alpha/"), "{alpha}");
+        // In-app upgrades must not restore the unsupported Go 1.22 compatibility build.
+        #[cfg(target_os = "macos")]
+        {
+            assert!(!release.contains("-go122"), "{release}");
+            assert!(!alpha.contains("-go122"), "{alpha}");
+        }
     }
 }

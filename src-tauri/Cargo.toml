@@ -105,7 +105,7 @@ clash_verge_service_ipc = { git = "https://github.com/clash-verge-rev/clash-verg
 arc-swap = "1.9.2"
 tokio-rustls = "0.26.6"
 rustls = { version = "0.23.45", features = ["ring"] }
-webpki-roots = "1.0.9"
+webpki-roots = "1.0.10"
 dark-light = "3.0.0"
 bytes = "1.12.1"
 tokio-util = { version = "0.7.19", features = ["time"] }
